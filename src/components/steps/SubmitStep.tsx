@@ -52,6 +52,8 @@ export default function SubmitStep({
   onReset,
 }: SubmitStepProps) {
   const [submitted, setSubmitted] = useState(false);
+  const [isFillingPortal, setIsFillingPortal] = useState(false);
+  const [portalError, setPortalError] = useState<string | null>(null);
 
   const agencyEmail = findAgencyEmail(agency.id, agency.name);
 
@@ -102,15 +104,46 @@ ${userDetails.email}
 
   const handleSubmit = async () => {
     if (!agencyEmail) {
-      // Copy all info to clipboard, then open FOIA portal
+      // Use Playwright to fill the portal form automatically
+      setIsFillingPortal(true);
+      setPortalError(null);
+
       try {
-        await navigator.clipboard.writeText(allFieldsText);
+        const response = await fetch("/api/fill-portal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            agencyId: agency.id,
+            firstName: userDetails.firstName,
+            lastName: userDetails.lastName,
+            email: userDetails.email,
+            phone: userDetails.phone,
+            addressLine1: userDetails.address.line1,
+            addressLine2: userDetails.address.line2,
+            city: userDetails.address.city,
+            state: userDetails.address.state,
+            zip: userDetails.address.zip,
+            requestDescription: rephrasedRequest,
+            feeWaiverRequested: userDetails.feeWaiverRequested,
+            feeWaiverReason: userDetails.feeWaiverReason,
+            maxFee: userDetails.maxFee,
+            feeCategory: userDetails.feeCategory,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          setSubmitted(true);
+        } else {
+          setPortalError(result.error || "Failed to open portal");
+        }
       } catch (e) {
-        console.error("Failed to copy:", e);
+        console.error("Portal fill error:", e);
+        setPortalError("Failed to connect to the portal service");
+      } finally {
+        setIsFillingPortal(false);
       }
-      const portalUrl = `https://www.foia.gov/request/agency-component/${agency.id}/`;
-      window.open(portalUrl, '_blank');
-      setSubmitted(true);
       return;
     }
 
@@ -144,9 +177,9 @@ ${rephrasedRequest}`.trim();
     if (!agencyEmail) {
       return (
         <div className="space-y-6 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-yellow-900/50">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-900/50">
             <svg
-              className="h-8 w-8 text-yellow-400"
+              className="h-8 w-8 text-green-400"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -160,17 +193,29 @@ ${rephrasedRequest}`.trim();
             </svg>
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-white">Info Copied & Portal Opened!</h2>
+            <h2 className="text-2xl font-bold text-white">Form Pre-Filled!</h2>
             <p className="mt-2 text-gray-400">
-              Your info has been copied to clipboard. Paste it into the portal form and complete the CAPTCHA.
+              A browser window has opened with your FOIA request form already filled in.
+              Just complete the CAPTCHA and click Submit!
             </p>
           </div>
 
           <div className="rounded-lg bg-gray-700 p-4 text-left">
-            <h3 className="font-medium text-white mb-2">What&apos;s in your clipboard:</h3>
-            <pre className="max-h-40 overflow-y-auto whitespace-pre-wrap text-sm text-gray-300 bg-gray-800 p-3 rounded">
-              {allFieldsText}
-            </pre>
+            <h3 className="font-medium text-white mb-2">Next steps:</h3>
+            <ul className="space-y-2 text-sm text-gray-300">
+              <li className="flex items-start gap-2">
+                <span className="text-green-400">1.</span>
+                Find the browser window that opened
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-green-400">2.</span>
+                Complete the CAPTCHA verification
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-green-400">3.</span>
+                Click the Submit button on the portal
+              </li>
+            </ul>
           </div>
 
           <button
@@ -253,12 +298,18 @@ ${rephrasedRequest}`.trim();
           </p>
         </div>
 
-        <div className="rounded-lg bg-yellow-900/30 border border-yellow-700 p-4">
-          <p className="text-yellow-300">
-            Clicking submit will copy all your info to clipboard and open the portal.
-            You&apos;ll need to paste your details and complete a CAPTCHA.
+        <div className="rounded-lg bg-green-900/30 border border-green-700 p-4">
+          <p className="text-green-300">
+            Clicking submit will open a browser with the form already filled in.
+            You just need to complete the CAPTCHA and click Submit!
           </p>
         </div>
+
+        {portalError && (
+          <div className="rounded-lg bg-red-900/30 border border-red-700 p-4">
+            <p className="text-red-300">{portalError}</p>
+          </div>
+        )}
 
         {/* Summary */}
         <div className="rounded-lg border border-gray-600 p-4 space-y-3">
@@ -284,15 +335,17 @@ ${rephrasedRequest}`.trim();
         <div className="flex gap-3">
           <button
             onClick={onBack}
-            className="flex-1 rounded-lg border border-gray-600 px-6 py-3 font-semibold text-gray-300 transition-colors hover:bg-gray-700"
+            disabled={isFillingPortal}
+            className="flex-1 rounded-lg border border-gray-600 px-6 py-3 font-semibold text-gray-300 transition-colors hover:bg-gray-700 disabled:opacity-50"
           >
             Back
           </button>
           <button
             onClick={handleSubmit}
-            className="flex-1 rounded-lg bg-yellow-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-yellow-700"
+            disabled={isFillingPortal}
+            className="flex-1 rounded-lg bg-green-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-green-700 disabled:opacity-50"
           >
-            Copy All & Open Portal
+            {isFillingPortal ? "Opening Browser..." : "Auto-Fill & Submit"}
           </button>
         </div>
       </div>
