@@ -102,7 +102,12 @@ ${userDetails.email}
 
   const handleSubmit = async () => {
     if (!agencyEmail) {
-      // Open FOIA portal (can't pre-fill - no API available)
+      // Copy all info to clipboard, then open FOIA portal
+      try {
+        await navigator.clipboard.writeText(allFieldsText);
+      } catch (e) {
+        console.error("Failed to copy:", e);
+      }
       const portalUrl = `https://www.foia.gov/request/agency-component/${agency.id}/`;
       window.open(portalUrl, '_blank');
       setSubmitted(true);
@@ -119,32 +124,19 @@ ${userDetails.email}
     setSubmitted(true);
   };
 
-  const [copiedField, setCopiedField] = useState<string | null>(null);
+  // Format all info for easy copy-paste into portal
+  const allFieldsText = `First Name: ${userDetails.firstName}
+Last Name: ${userDetails.lastName}
+Email: ${userDetails.email}
+${userDetails.phone ? `Phone: ${userDetails.phone}` : ''}
+Address: ${userDetails.address.line1}
+${userDetails.address.line2 ? `Address Line 2: ${userDetails.address.line2}` : ''}
+City: ${userDetails.address.city}
+State: ${userDetails.address.state}
+ZIP: ${userDetails.address.zip}
 
-  const copyToClipboard = (text: string, fieldName: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedField(fieldName);
-    setTimeout(() => setCopiedField(null), 1500);
-  };
-
-  const CopyButton = ({ text, fieldName }: { text: string; fieldName: string }) => (
-    <button
-      onClick={() => copyToClipboard(text, fieldName)}
-      className="ml-2 px-2 py-0.5 text-xs rounded border border-gray-500 text-gray-300 hover:bg-gray-600 flex-shrink-0"
-    >
-      {copiedField === fieldName ? "Copied!" : "Copy"}
-    </button>
-  );
-
-  const CopyableField = ({ label, value, fieldName }: { label: string; value: string; fieldName: string }) => (
-    <div className="flex items-center justify-between py-2 border-b border-gray-700">
-      <div className="min-w-0 flex-1">
-        <span className="text-gray-400 text-xs block">{label}</span>
-        <span className="text-white text-sm truncate block">{value}</span>
-      </div>
-      <CopyButton text={value} fieldName={fieldName} />
-    </div>
-  );
+Request Description:
+${rephrasedRequest}`.trim();
 
   // Success state
   if (submitted) {
@@ -168,39 +160,17 @@ ${userDetails.email}
             </svg>
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-white">Portal Opened!</h2>
+            <h2 className="text-2xl font-bold text-white">Info Copied & Portal Opened!</h2>
             <p className="mt-2 text-gray-400">
-              The FOIA portal for {agency.name} should have opened in a new tab.
-              Use the Copy buttons below to fill in each field.
+              Your info has been copied to clipboard. Paste it into the portal form and complete the CAPTCHA.
             </p>
           </div>
 
-          {/* Copyable Fields for reference */}
           <div className="rounded-lg bg-gray-700 p-4 text-left">
-            <h3 className="font-medium text-white mb-3">Your Information (click Copy for each)</h3>
-            <CopyableField label="First Name" value={userDetails.firstName} fieldName="firstName" />
-            <CopyableField label="Last Name" value={userDetails.lastName} fieldName="lastName" />
-            <CopyableField label="Email" value={userDetails.email} fieldName="email" />
-            {userDetails.phone && (
-              <CopyableField label="Phone" value={userDetails.phone} fieldName="phone" />
-            )}
-            <CopyableField label="Street Address" value={userDetails.address.line1} fieldName="address1" />
-            {userDetails.address.line2 && (
-              <CopyableField label="Address Line 2" value={userDetails.address.line2} fieldName="address2" />
-            )}
-            <CopyableField label="City" value={userDetails.address.city} fieldName="city" />
-            <CopyableField label="State" value={userDetails.address.state} fieldName="state" />
-            <CopyableField label="ZIP Code" value={userDetails.address.zip} fieldName="zip" />
-          </div>
-
-          <div className="rounded-lg bg-gray-700 p-4 text-left">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="font-medium text-white">Request Description</h3>
-              <CopyButton text={rephrasedRequest} fieldName="description" />
-            </div>
-            <div className="max-h-32 overflow-y-auto whitespace-pre-wrap text-sm text-gray-300 bg-gray-800 p-3 rounded">
-              {rephrasedRequest}
-            </div>
+            <h3 className="font-medium text-white mb-2">What&apos;s in your clipboard:</h3>
+            <pre className="max-h-40 overflow-y-auto whitespace-pre-wrap text-sm text-gray-300 bg-gray-800 p-3 rounded">
+              {allFieldsText}
+            </pre>
           </div>
 
           <button
@@ -274,57 +244,39 @@ ${userDetails.email}
 
   // Portal submission state (agency without email)
   if (!agencyEmail) {
-    const fullAddress = `${userDetails.address.line1}${userDetails.address.line2 ? ', ' + userDetails.address.line2 : ''}, ${userDetails.address.city}, ${userDetails.address.state} ${userDetails.address.zip}`;
-
     return (
       <div className="space-y-6">
         <div>
-          <h2 className="text-2xl font-bold text-white">Submit via Portal</h2>
+          <h2 className="text-2xl font-bold text-white">Review & Submit</h2>
           <p className="mt-2 text-gray-400">
-            {agency.name} requires portal submission. Copy each field below into the portal form.
+            {agency.name} requires portal submission with CAPTCHA.
           </p>
         </div>
 
         <div className="rounded-lg bg-yellow-900/30 border border-yellow-700 p-4">
-          <div className="flex gap-3">
-            <svg className="h-6 w-6 text-yellow-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <div>
-              <p className="font-medium text-yellow-300">Manual Entry Required</p>
-              <p className="mt-1 text-sm text-yellow-400">
-                Click &quot;Copy&quot; next to each field, then paste into the portal form.
-              </p>
-            </div>
-          </div>
+          <p className="text-yellow-300">
+            Clicking submit will copy all your info to clipboard and open the portal.
+            You&apos;ll need to paste your details and complete a CAPTCHA.
+          </p>
         </div>
 
-        {/* Copyable Fields */}
-        <div className="rounded-lg border border-gray-600 p-4">
-          <h3 className="text-sm font-medium text-gray-300 mb-2">Your Information</h3>
-          <CopyableField label="First Name" value={userDetails.firstName} fieldName="firstName" />
-          <CopyableField label="Last Name" value={userDetails.lastName} fieldName="lastName" />
-          <CopyableField label="Email" value={userDetails.email} fieldName="email" />
-          {userDetails.phone && (
-            <CopyableField label="Phone" value={userDetails.phone} fieldName="phone" />
-          )}
-          <CopyableField label="Street Address" value={userDetails.address.line1} fieldName="address1" />
-          {userDetails.address.line2 && (
-            <CopyableField label="Address Line 2" value={userDetails.address.line2} fieldName="address2" />
-          )}
-          <CopyableField label="City" value={userDetails.address.city} fieldName="city" />
-          <CopyableField label="State" value={userDetails.address.state} fieldName="state" />
-          <CopyableField label="ZIP Code" value={userDetails.address.zip} fieldName="zip" />
-        </div>
-
-        {/* Request Description */}
-        <div className="rounded-lg border border-gray-600 p-4">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-gray-300">Request Description</h3>
-            <CopyButton text={rephrasedRequest} fieldName="description" />
+        {/* Summary */}
+        <div className="rounded-lg border border-gray-600 p-4 space-y-3">
+          <div>
+            <span className="text-gray-400 text-sm">Agency:</span>
+            <p className="text-white">{agency.name}</p>
           </div>
-          <div className="max-h-32 overflow-y-auto whitespace-pre-wrap text-sm text-gray-300 bg-gray-700 p-3 rounded">
-            {rephrasedRequest}
+          <div>
+            <span className="text-gray-400 text-sm">Name:</span>
+            <p className="text-white">{userDetails.firstName} {userDetails.lastName}</p>
+          </div>
+          <div>
+            <span className="text-gray-400 text-sm">Email:</span>
+            <p className="text-white">{userDetails.email}</p>
+          </div>
+          <div>
+            <span className="text-gray-400 text-sm">Request:</span>
+            <p className="text-white text-sm">{rephrasedRequest.substring(0, 150)}...</p>
           </div>
         </div>
 
@@ -340,7 +292,7 @@ ${userDetails.email}
             onClick={handleSubmit}
             className="flex-1 rounded-lg bg-yellow-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-yellow-700"
           >
-            Open Portal
+            Copy All & Open Portal
           </button>
         </div>
       </div>
