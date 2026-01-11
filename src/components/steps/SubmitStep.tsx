@@ -102,13 +102,25 @@ ${userDetails.email}
 
   const handleSubmit = async () => {
     if (!agencyEmail) {
-      // Copy request to clipboard first, then open FOIA portal
-      try {
-        await navigator.clipboard.writeText(emailBody);
-      } catch (e) {
-        console.error("Failed to copy to clipboard:", e);
-      }
-      const portalUrl = `https://www.foia.gov/request/agency-component/${agency.id}/`;
+      // Build FOIA portal URL with pre-filled form parameters
+      const params = new URLSearchParams({
+        first_name: userDetails.firstName,
+        last_name: userDetails.lastName,
+        email: userDetails.email,
+        phone: userDetails.phone || '',
+        address_line1: userDetails.address.line1,
+        address_line2: userDetails.address.line2 || '',
+        city: userDetails.address.city,
+        state: userDetails.address.state,
+        zip: userDetails.address.zip,
+        description: rephrasedRequest,
+        fee_waiver: userDetails.feeWaiverRequested ? 'yes' : 'no',
+        fee_waiver_justification: userDetails.feeWaiverReason || '',
+        fee_amount: String(userDetails.maxFee),
+        requester_category: userDetails.feeCategory,
+      });
+
+      const portalUrl = `https://www.foia.gov/request/agency-component/${agency.id}/?${params.toString()}`;
       window.open(portalUrl, '_blank');
       setSubmitted(true);
       return;
