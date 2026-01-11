@@ -100,9 +100,14 @@ ${userDetails.firstName} ${userDetails.lastName}
 ${userDetails.email}
 `;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!agencyEmail) {
-      // Open FOIA portal for agencies without email
+      // Copy request to clipboard first, then open FOIA portal
+      try {
+        await navigator.clipboard.writeText(emailBody);
+      } catch (e) {
+        console.error("Failed to copy to clipboard:", e);
+      }
       const portalUrl = `https://www.foia.gov/request/agency-component/${agency.id}/`;
       window.open(portalUrl, '_blank');
       setSubmitted(true);
@@ -149,15 +154,15 @@ ${userDetails.email}
             </svg>
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-white">Portal Opened!</h2>
+            <h2 className="text-2xl font-bold text-white">Request Copied & Portal Opened!</h2>
             <p className="mt-2 text-gray-400">
-              The FOIA portal for {agency.name} should have opened in a new tab.
-              Paste your request there and complete the CAPTCHA to submit.
+              Your request has been copied to your clipboard and the FOIA portal for {agency.name} should have opened in a new tab.
+              Just paste (Ctrl+V or Cmd+V) into the request field and complete the CAPTCHA.
             </p>
           </div>
 
           <div className="rounded-lg bg-gray-700 p-4 text-left">
-            <h3 className="font-medium text-white">Your Request (copy this)</h3>
+            <h3 className="font-medium text-white">Your Request (already copied!)</h3>
             <div className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap text-sm text-gray-300 bg-gray-800 p-3 rounded">
               {emailBody}
             </div>
@@ -165,7 +170,7 @@ ${userDetails.email}
               onClick={handleCopyRequest}
               className="mt-3 w-full rounded-lg border border-gray-600 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-600"
             >
-              {copied ? "Copied!" : "Copy Request to Clipboard"}
+              {copied ? "Copied!" : "Copy Again"}
             </button>
           </div>
 
@@ -339,7 +344,7 @@ ${userDetails.email}
             onClick={handleSubmit}
             className="flex-1 rounded-lg bg-yellow-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-yellow-700"
           >
-            Open FOIA Portal
+            Copy & Open Portal
           </button>
         </div>
       </div>
